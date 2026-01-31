@@ -105,12 +105,10 @@ CREATE TABLE geolocation (
     geolocation_zip_code_prefix INT,
     geolocation_lat FLOAT,
     geolocation_lng FLOAT,	
-    geolocation_city VARCHAR(30),
+    geolocation_city VARCHAR(50),
     geolocation_state VARCHAR(10)
 );
 
-ALTER TABLE geolocation
-ALTER COLUMN geolocation_city TYPE VARCHAR(50)
 ```
 ---
 
