@@ -156,7 +156,6 @@ CREATE TABLE geolocation (
 * ```sql
     SELECT
         p.product_id,
-        p.stock_quantity AS current_stock,
         EXTRACT(YEAR FROM o.order_purchase_timestamp) AS distinct_year,
         ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 1) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jan_Pct,
         ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 2) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Feb_Pct,
@@ -176,7 +175,6 @@ CREATE TABLE geolocation (
     JOIN orders AS o ON oi.order_id = o.order_id
     GROUP BY 
         p.product_id, 
-        p.stock_quantity, 
         distinct_year
     ORDER BY 
         distinct_year DESC, 
