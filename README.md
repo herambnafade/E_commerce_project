@@ -226,44 +226,44 @@ CREATE TABLE geolocation (
 * Clusters customers by rounding latitude and longitude to one decimal point.
 * Identifies the top 5 high-volume areas and top 3 high-shipping-cost areas for potential fulfillment centers.
 * ```sql
-CREATE TEMP TABLE demand_clusters AS
-WITH customer_locations AS (
-    SELECT
-        o.order_id AS order_id,
-        oi.freight_value AS freight_value,
-        g.geolocation_lat AS customer_latitude,
-        g.geolocation_lng AS customer_longitude
-    FROM orders o
-    INNER JOIN order_items oi
-        ON o.order_id = oi.order_id
-    INNER JOIN customers c
-        ON o.customer_id = c.customer_id
-    INNER JOIN geolocation g
-        ON c.customer_zip_code_prefix = g.geolocation_zip_code_prefix
-), demand_clusters AS (
-    SELECT
-        ROUND(customer_latitude::numeric, 1) AS cluster_latitude,
-        ROUND(customer_longitude::numeric, 1) AS cluster_longitude,
-        COUNT(order_id) AS total_orders,
-        SUM(freight_value) AS total_shipping_cost
-    FROM customer_locations
-    GROUP BY
-        ROUND(customer_latitude::numeric, 1),
-        ROUND(customer_longitude::numeric, 1)
-)
-
--- Top 5 high-demand clusters (by order volume)
-SELECT *
-FROM demand_clusters
-ORDER BY total_orders DESC
-LIMIT 5;
-
--- micro-fulfillment centers (by shipping cost)
-SELECT *
-FROM demand_clusters
-ORDER BY total_shipping_cost DESC
-LIMIT 3;
-```
+    CREATE TEMP TABLE demand_clusters AS
+    WITH customer_locations AS (
+        SELECT
+            o.order_id AS order_id,
+            oi.freight_value AS freight_value,
+            g.geolocation_lat AS customer_latitude,
+            g.geolocation_lng AS customer_longitude
+        FROM orders o
+        INNER JOIN order_items oi
+            ON o.order_id = oi.order_id
+        INNER JOIN customers c
+            ON o.customer_id = c.customer_id
+        INNER JOIN geolocation g
+            ON c.customer_zip_code_prefix = g.geolocation_zip_code_prefix
+    ), demand_clusters AS (
+        SELECT
+            ROUND(customer_latitude::numeric, 1) AS cluster_latitude,
+            ROUND(customer_longitude::numeric, 1) AS cluster_longitude,
+            COUNT(order_id) AS total_orders,
+            SUM(freight_value) AS total_shipping_cost
+        FROM customer_locations
+        GROUP BY
+            ROUND(customer_latitude::numeric, 1),
+            ROUND(customer_longitude::numeric, 1)
+    )
+    
+    -- Top 5 high-demand clusters (by order volume)
+    SELECT *
+    FROM demand_clusters
+    ORDER BY total_orders DESC
+    LIMIT 5;
+    
+    -- micro-fulfillment centers (by shipping cost)
+    SELECT *
+    FROM demand_clusters
+    ORDER BY total_shipping_cost DESC
+    LIMIT 3;
+  ```
 
 ### 4. Seller Risk & Churn Prediction
 
@@ -272,47 +272,47 @@ LIMIT 3;
 * **Criteria**: Orders with  days of delay and a review score  from first-time customers.
 * **Risk Flag**: Sellers with  churn probability are flagged as `HIGH RISK`.
 * ```sql
-with shipping_data as (
+    with shipping_data as (
+        select
+            o.order_id,
+            oi.seller_id,
+            o.customer_id,
+            r.review_score,
+            -- calculating raw delay days
+            (o.order_delivered_carrier_date::date - oi.shipping_limit_date::date) as delay_days
+        from orders o
+        join order_items oi on o.order_id = oi.order_id
+        join order_reviews r on o.order_id = r.order_id
+        where o.order_delivered_carrier_date is not null
+    ),
+    
+    customer_history as (
+        select 
+            customer_id, 
+            count(order_id) as total_orders
+        from orders
+        group by customer_id
+    )
+    
     select
-        o.order_id,
-        oi.seller_id,
-        o.customer_id,
-        r.review_score,
-        -- calculating raw delay days
-        (o.order_delivered_carrier_date::date - oi.shipping_limit_date::date) as delay_days
-    from orders o
-    join order_items oi on o.order_id = oi.order_id
-    join order_reviews r on o.order_id = r.order_id
-    where o.order_delivered_carrier_date is not null
-),
-
-customer_history as (
-    select 
-        customer_id, 
-        count(order_id) as total_orders
-    from orders
-    group by customer_id
-)
-
-select
-    s.seller_id,
-    count(s.order_id) as delayed_orders,
-    sum(case when h.total_orders = 1 and s.review_score <= 2 then 1 else 0 end) as churned_orders,
-    round(
-        sum(case when h.total_orders = 1 and s.review_score <= 2 then 1 else 0 end)::numeric 
-        / count(s.order_id), 2
-    ) as churn_probability,
-    case 
-        when (sum(case when h.total_orders = 1 and s.review_score <= 2 then 1 else 0 end)::float / count(s.order_id)) > 0.30 
-        then 'HIGH RISK'
-        else 'LOW RISK'
-    end as seller_risk_flag
-from shipping_data s
-join customer_history h on s.customer_id = h.customer_id
-where s.delay_days >= 5
-group by s.seller_id
-order by churn_probability desc;
-```
+        s.seller_id,
+        count(s.order_id) as delayed_orders,
+        sum(case when h.total_orders = 1 and s.review_score <= 2 then 1 else 0 end) as churned_orders,
+        round(
+            sum(case when h.total_orders = 1 and s.review_score <= 2 then 1 else 0 end)::numeric 
+            / count(s.order_id), 2
+        ) as churn_probability,
+        case 
+            when (sum(case when h.total_orders = 1 and s.review_score <= 2 then 1 else 0 end)::float / count(s.order_id)) > 0.30 
+            then 'HIGH RISK'
+            else 'LOW RISK'
+        end as seller_risk_flag
+    from shipping_data s
+    join customer_history h on s.customer_id = h.customer_id
+    where s.delay_days >= 5
+    group by s.seller_id
+    order by churn_probability desc;
+  ```
 
 ### 5. Collaborative Shipping (Lost Margin Analysis)
 
@@ -321,49 +321,49 @@ order by churn_probability desc;
 * Analyzes orders where products from different sellers are bought together.
 * Calculates "Lost Margin"—the extra shipping cost incurred by sending two separate packages instead of one consolidated shipment.
 * ```sql
-  -- Problem Statement 5A:
--- Seller pairs whose products are bought together (Lost Margin from shipping)
--- Sellers who should collaborate for inventory
-
-SELECT 
-    a.seller_id AS seller_a, 
-    b.seller_id AS seller_b,
-    COUNT(*) AS co_purchase_count,
-    ROUND(SUM((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS total_lost_margin,
-    ROUND(AVG((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS avg_lost_margin
-FROM order_items a
-JOIN order_items b ON a.order_id = b.order_id 
-    AND a.product_id < b.product_id
-WHERE a.seller_id <> b.seller_id
-GROUP BY seller_a, seller_b
-HAVING COUNT(*) >= 10
-ORDER BY total_lost_margin DESC;
-
--- Problem Statement 5B:
--- Products Based on Category which are bought together (Lost Margin from shipping)
-
-SELECT 
-    p1.product_category_name AS category_a,
-    p2.product_category_name AS category_b,
-    COUNT(*) AS co_purchase_count,
-    ROUND(SUM((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS total_lost_margin,
-    ROUND(AVG((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS avg_lost_margin
-FROM order_items a
-JOIN order_items b 
-    ON a.order_id = b.order_id
-   AND a.product_id < b.product_id
-JOIN products p1 
-    ON a.product_id = p1.product_id
-JOIN products p2 
-    ON b.product_id = p2.product_id
-WHERE a.seller_id <> b.seller_id
-  AND p1.product_category_name <> p2.product_category_name
-GROUP BY 
-    p1.product_category_name,
-    p2.product_category_name
-HAVING COUNT(*) >= 10
-ORDER BY co_purchase_count DESC;
-```
+      -- Problem Statement 5A:
+    -- Seller pairs whose products are bought together (Lost Margin from shipping)
+    -- Sellers who should collaborate for inventory
+    
+    SELECT 
+        a.seller_id AS seller_a, 
+        b.seller_id AS seller_b,
+        COUNT(*) AS co_purchase_count,
+        ROUND(SUM((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS total_lost_margin,
+        ROUND(AVG((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS avg_lost_margin
+    FROM order_items a
+    JOIN order_items b ON a.order_id = b.order_id 
+        AND a.product_id < b.product_id
+    WHERE a.seller_id <> b.seller_id
+    GROUP BY seller_a, seller_b
+    HAVING COUNT(*) >= 10
+    ORDER BY total_lost_margin DESC;
+    
+    -- Problem Statement 5B:
+    -- Products Based on Category which are bought together (Lost Margin from shipping)
+    
+    SELECT 
+        p1.product_category_name AS category_a,
+        p2.product_category_name AS category_b,
+        COUNT(*) AS co_purchase_count,
+        ROUND(SUM((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS total_lost_margin,
+        ROUND(AVG((a.freight_value + b.freight_value) - GREATEST(a.freight_value, b.freight_value))::numeric, 2) AS avg_lost_margin
+    FROM order_items a
+    JOIN order_items b 
+        ON a.order_id = b.order_id
+       AND a.product_id < b.product_id
+    JOIN products p1 
+        ON a.product_id = p1.product_id
+    JOIN products p2 
+        ON b.product_id = p2.product_id
+    WHERE a.seller_id <> b.seller_id
+      AND p1.product_category_name <> p2.product_category_name
+    GROUP BY 
+        p1.product_category_name,
+        p2.product_category_name
+    HAVING COUNT(*) >= 10
+    ORDER BY co_purchase_count DESC;
+  ```
 
 ---
 
