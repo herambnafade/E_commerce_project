@@ -121,7 +121,7 @@ CREATE TABLE geolocation (
 * **EOQ Formula**: Uses annual demand, freight value (as ordering cost), and 20% of price as holding cost.
 * **Reorder Point**: Accounts for average lead time and a 95% service level safety stock ().
 * ```sql
- SELECT product_id,
+  SELECT product_id,
     ROUND(annual_demand::numeric, 2) AS annual_demand,
     ROUND(eoq::numeric, 0) AS eoq,
     ROUND(
@@ -135,7 +135,7 @@ CREATE TABLE geolocation (
         )::numeric,
         0
     ) AS reorder_point --Reorder Point = (Avg Lead Time * Daily Demand) + Safety Stock
-FROM (
+  FROM (
         SELECT oi.product_id,
             AVG(oi.price) AS avg_price,
             AVG(oi.freight_value) AS avg_freight,
@@ -182,8 +182,8 @@ FROM (
         GROUP BY oi.product_id
         HAVING COUNT(oi.order_id) > 5
     ) AS stats
-WHERE avg_price > 0
-ORDER BY reorder_point DESC;
+  WHERE avg_price > 0
+  ORDER BY reorder_point DESC;
 ```
 
 ### 2. Demand Seasonality & Trend Analysis
