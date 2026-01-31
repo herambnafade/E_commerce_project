@@ -121,7 +121,7 @@ CREATE TABLE geolocation (
 * **EOQ Formula**: Uses annual demand, freight value (as ordering cost), and 20% of price as holding cost.
 * **Reorder Point**: Accounts for average lead time and a 95% service level safety stock ().
 * ```sql
-    SELECT 
+SELECT 
         product_id,
         ROUND(annual_demand::numeric, 2) AS annual_demand,
         ROUND(eoq::numeric, 0) AS eoq,
@@ -145,7 +145,7 @@ CREATE TABLE geolocation (
     ) AS stats
     WHERE avg_price > 0
     ORDER BY reorder_point DESC;
-```
+    ```
 
 ### 2. Demand Seasonality & Trend Analysis
 
@@ -154,70 +154,70 @@ CREATE TABLE geolocation (
 * Calculates monthly sales percentages to identify seasonal peaks.
 * Computes YoY growth percentages for product categories using window functions (`LAG`).
 * ```sql
-SELECT
-    p.product_id,
-    p.stock_quantity AS current_stock,
-    EXTRACT(YEAR FROM o.order_purchase_timestamp) AS distinct_year,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 1) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jan_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 2) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Feb_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 3) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Mar_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 4) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Apr_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 5) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS May_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 6) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jun_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 7) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jul_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 8) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Aug_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 9) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Sep_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 10) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Oct_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 11) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Nov_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 12) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Dec_Pct,
-    COUNT(oi.order_item_id) AS total_yearly_units
-FROM products AS p
-JOIN order_items AS oi ON p.product_id = oi.product_id
-JOIN orders AS o ON oi.order_id = o.order_id
-GROUP BY 
-    p.product_id, 
-    p.stock_quantity, 
-    distinct_year
-ORDER BY 
-    distinct_year DESC, 
-    total_yearly_units DESC;
-
-1
-SELECT
-    p.product_category_name,
-    EXTRACT(YEAR FROM o.order_purchase_timestamp) AS distinct_year,
-    COUNT(oi.order_item_id) AS total_yearly_units,
-    ROUND(
-        100.0 * (COUNT(oi.order_item_id) - LAG(COUNT(oi.order_item_id)) OVER (
-            PARTITION BY p.product_category_name 
-            ORDER BY EXTRACT(YEAR FROM o.order_purchase_timestamp)
-        )) / NULLIF(LAG(COUNT(oi.order_item_id)) OVER (
-            PARTITION BY p.product_category_name 
-            ORDER BY EXTRACT(YEAR FROM o.order_purchase_timestamp)
-        ), 0), 
-    2) AS yoy_growth_pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 1) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jan_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 2) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Feb_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 3) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Mar_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 4) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Apr_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 5) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS May_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 6) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jun_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 7) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jul_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 8) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Aug_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 9) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Sep_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 10) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Oct_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 11) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Nov_Pct,
-    ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 12) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Dec_Pct
-FROM products AS p
-JOIN order_items AS oi ON p.product_id = oi.product_id
-JOIN orders AS o ON oi.order_id = o.order_id
-GROUP BY 
-    p.product_category_name,
-    distinct_year
-ORDER BY 
-    p.product_category_name, 
-    distinct_year DESC;
-```
+    SELECT
+        p.product_id,
+        p.stock_quantity AS current_stock,
+        EXTRACT(YEAR FROM o.order_purchase_timestamp) AS distinct_year,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 1) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jan_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 2) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Feb_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 3) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Mar_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 4) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Apr_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 5) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS May_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 6) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jun_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 7) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jul_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 8) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Aug_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 9) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Sep_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 10) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Oct_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 11) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Nov_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 12) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Dec_Pct,
+        COUNT(oi.order_item_id) AS total_yearly_units
+    FROM products AS p
+    JOIN order_items AS oi ON p.product_id = oi.product_id
+    JOIN orders AS o ON oi.order_id = o.order_id
+    GROUP BY 
+        p.product_id, 
+        p.stock_quantity, 
+        distinct_year
+    ORDER BY 
+        distinct_year DESC, 
+        total_yearly_units DESC;
+    
+    
+    SELECT
+        p.product_category_name,
+        EXTRACT(YEAR FROM o.order_purchase_timestamp) AS distinct_year,
+        COUNT(oi.order_item_id) AS total_yearly_units,
+        ROUND(
+            100.0 * (COUNT(oi.order_item_id) - LAG(COUNT(oi.order_item_id)) OVER (
+                PARTITION BY p.product_category_name 
+                ORDER BY EXTRACT(YEAR FROM o.order_purchase_timestamp)
+            )) / NULLIF(LAG(COUNT(oi.order_item_id)) OVER (
+                PARTITION BY p.product_category_name 
+                ORDER BY EXTRACT(YEAR FROM o.order_purchase_timestamp)
+            ), 0), 
+        2) AS yoy_growth_pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 1) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jan_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 2) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Feb_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 3) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Mar_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 4) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Apr_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 5) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS May_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 6) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jun_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 7) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Jul_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 8) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Aug_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 9) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Sep_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 10) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Oct_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 11) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Nov_Pct,
+        ROUND(100.0 * COUNT(oi.order_item_id) FILTER (WHERE EXTRACT(MONTH FROM o.order_purchase_timestamp) = 12) / NULLIF(COUNT(oi.order_item_id), 0), 2) AS Dec_Pct
+    FROM products AS p
+    JOIN order_items AS oi ON p.product_id = oi.product_id
+    JOIN orders AS o ON oi.order_id = o.order_id
+    GROUP BY 
+        p.product_category_name,
+        distinct_year
+    ORDER BY 
+        p.product_category_name, 
+        distinct_year DESC;
+  ```
 
 ### 3. Geospatial Micro-Warehousing
 
