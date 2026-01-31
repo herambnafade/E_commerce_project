@@ -121,30 +121,69 @@ CREATE TABLE geolocation (
 * **EOQ Formula**: Uses annual demand, freight value (as ordering cost), and 20% of price as holding cost.
 * **Reorder Point**: Accounts for average lead time and a 95% service level safety stock ().
 * ```sql
-  SELECT 
-    product_id,
+ SELECT product_id,
     ROUND(annual_demand::numeric, 2) AS annual_demand,
     ROUND(eoq::numeric, 0) AS eoq,
-    ROUND((1.65 * lead_time_sigma * (annual_demand / 365.0))::numeric, 0) AS safety_stock,    --Safety Stock calculation: Z (1.65 for 95%) * σLT * (Annual Demand / 365)
-    ROUND(((avg_lead_time * (annual_demand / 365.0)) + (1.65 * lead_time_sigma * (annual_demand / 365.0)))::numeric, 0) AS reorder_point    --Reorder Point = (Avg Lead Time * Daily Demand) + Safety Stock
-  FROM (
-    SELECT 
-        oi.product_id,
-        AVG(oi.price) AS avg_price,
-        AVG(oi.freight_value) AS avg_freight,
-        COUNT(oi.order_id) / NULLIF((MAX(o.order_purchase_timestamp)::date - MIN(o.order_purchase_timestamp)::date) / 365.0, 0) AS annual_demand,      -- EOQ Components
-        AVG(EXTRACT(DAY FROM (o.order_delivered_customer_date - o.order_purchase_timestamp))) AS avg_lead_time,      -- Lead Time Components (in days)
-        STDDEV(EXTRACT(DAY FROM (o.order_delivered_customer_date - o.order_purchase_timestamp))) AS lead_time_sigma,
-        SQRT((2 * (COUNT(oi.order_id) / NULLIF((MAX(o.order_purchase_timestamp)::date - MIN(o.order_purchase_timestamp)::date) / 365.0, 0)) * AVG(oi.freight_value)) / (AVG(oi.price) * 0.2)) AS eoq   -- EOQ Formula
-    FROM order_items oi
-    JOIN orders o ON oi.order_id = o.order_id
-    WHERE o.order_status = 'delivered' 
-      AND o.order_delivered_customer_date IS NOT NULL
-    GROUP BY oi.product_id
-    HAVING COUNT(oi.order_id) > 5
-  ) AS stats
-  WHERE avg_price > 0
-    ORDER BY reorder_point DESC;
+    ROUND(
+        (1.65 * lead_time_sigma * (annual_demand / 365.0))::numeric,
+        0
+    ) AS safety_stock,
+    --Safety Stock calculation: Z (1.65 for 95%) * σLT * (Annual Demand / 365)
+    ROUND(
+        (
+            (avg_lead_time * (annual_demand / 365.0)) + (1.65 * lead_time_sigma * (annual_demand / 365.0))
+        )::numeric,
+        0
+    ) AS reorder_point --Reorder Point = (Avg Lead Time * Daily Demand) + Safety Stock
+FROM (
+        SELECT oi.product_id,
+            AVG(oi.price) AS avg_price,
+            AVG(oi.freight_value) AS avg_freight,
+            COUNT(oi.order_id) / NULLIF(
+                (
+                    MAX(o.order_purchase_timestamp)::date - MIN(o.order_purchase_timestamp)::date
+                ) / 365.0,
+                0
+            ) AS annual_demand,
+            -- EOQ Components
+            AVG(
+                EXTRACT(
+                    DAY
+                    FROM (
+                            o.order_delivered_customer_date - o.order_purchase_timestamp
+                        )
+                )
+            ) AS avg_lead_time,
+            -- Lead Time Components (in days)
+            STDDEV(
+                EXTRACT(
+                    DAY
+                    FROM (
+                            o.order_delivered_customer_date - o.order_purchase_timestamp
+                        )
+                )
+            ) AS lead_time_sigma,
+            SQRT(
+                (
+                    2 * (
+                        COUNT(oi.order_id) / NULLIF(
+                            (
+                                MAX(o.order_purchase_timestamp)::date - MIN(o.order_purchase_timestamp)::date
+                            ) / 365.0,
+                            0
+                        )
+                    ) * AVG(oi.freight_value)
+                ) / (AVG(oi.price) * 0.2)
+            ) AS eoq -- EOQ Formula
+        FROM order_items oi
+            JOIN orders o ON oi.order_id = o.order_id
+        WHERE o.order_status = 'delivered'
+            AND o.order_delivered_customer_date IS NOT NULL
+        GROUP BY oi.product_id
+        HAVING COUNT(oi.order_id) > 5
+    ) AS stats
+WHERE avg_price > 0
+ORDER BY reorder_point DESC;
 ```
 
 ### 2. Demand Seasonality & Trend Analysis
