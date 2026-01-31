@@ -121,7 +121,7 @@ CREATE TABLE geolocation (
 * **EOQ Formula**: Uses annual demand, freight value (as ordering cost), and 20% of price as holding cost.
 * **Reorder Point**: Accounts for average lead time and a 95% service level safety stock ().
 * ```sql
-SELECT 
+  SELECT 
         product_id,
         ROUND(annual_demand::numeric, 2) AS annual_demand,
         ROUND(eoq::numeric, 0) AS eoq,
