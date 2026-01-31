@@ -127,7 +127,7 @@ CREATE TABLE geolocation (
     ROUND(eoq::numeric, 0) AS eoq,
     ROUND((1.65 * lead_time_sigma * (annual_demand / 365.0))::numeric, 0) AS safety_stock,    --Safety Stock calculation: Z (1.65 for 95%) * σLT * (Annual Demand / 365)
     ROUND(((avg_lead_time * (annual_demand / 365.0)) + (1.65 * lead_time_sigma * (annual_demand / 365.0)))::numeric, 0) AS reorder_point    --Reorder Point = (Avg Lead Time * Daily Demand) + Safety Stock
-FROM (
+  FROM (
     SELECT 
         oi.product_id,
         AVG(oi.price) AS avg_price,
@@ -142,9 +142,9 @@ FROM (
       AND o.order_delivered_customer_date IS NOT NULL
     GROUP BY oi.product_id
     HAVING COUNT(oi.order_id) > 5
-) AS stats
-WHERE avg_price > 0
-ORDER BY reorder_point DESC;
+  ) AS stats
+  WHERE avg_price > 0
+    ORDER BY reorder_point DESC;
 ```
 
 ### 2. Demand Seasonality & Trend Analysis
